@@ -218,41 +218,32 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
-      # ── Smoke check: backend /health via Docker Compose ──────
-      # We start only the backend + mongo services from docker-compose.yml
-      # (not the frontend) and curl /health to confirm the published image
-      # boots and responds correctly.
-      # NOTE: This uses the PRODUCTION compose file and the image we just
-      # pushed, so it needs GHCR login (already done above).
-      - name: Backend smoke check via Docker Compose
+      # Smoke-check the exact backend image published to GHCR.
+      # The health endpoint needs no database or application secrets.
+      - name: Backend image smoke check
+        shell: bash
         run: |
-          # Pull the image we just pushed so compose uses the new version
-          docker pull ghcr.io/${{ env.REPO_LC }}-backend:latest
+          image="ghcr.io/${REPO_LC}-backend:latest"
+          docker pull "$image"
 
-          # Override the backend image in compose to use the one we just built
-          # and start only mongo + backend (no frontend needed for /health)
-          BACKEND_IMAGE=ghcr.io/${{ env.REPO_LC }}-backend:latest \
-          docker compose -f docker-compose.yml \
-            up -d mongo backend
+          container_id=$(docker run -d --rm -p 5000:5000 \
+            -e NODE_ENV=production \
+            -e PORT=5000 \
+            "$image")
+          cleanup() { docker stop "$container_id" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
 
-          echo "Waiting up to 60s for backend to become healthy..."
-          timeout 60 bash -c \
-            'until curl -sf http://localhost:5000/health; do sleep 3; done'
+          for attempt in {1..20}; do
+            if curl --fail --silent http://localhost:5000/health; then
+              echo
+              exit 0
+            fi
+            sleep 3
+          done
 
-          echo ""
-          echo "Backend /health response:"
-          curl -sf http://localhost:5000/health | jq .
-
-          docker compose -f docker-compose.yml down
-        env:
-          # docker-compose.yml reads .env.server; create a minimal one for CI
-          # so the backend starts without crashing on missing vars.
-          NODE_ENV: production
-          MONGO_URI: mongodb://mongo:27017/techagency
-          PORT: "5000"
-          JWT_SECRET: ci-smoke-secret-not-real
-          CORS_ORIGIN: http://localhost:3000
-
+          echo 'Backend did not become healthy. Container logs:'
+          docker logs "$container_id"
+          exit 1
 # ============================================================
 # NOT IMPLEMENTED — and why:
 #

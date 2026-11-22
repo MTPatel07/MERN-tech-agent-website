@@ -1,5 +1,3 @@
-version: '3.9'
-
 # ==============================================================
 # MERN Tech Agency Website — Docker Compose (Production)
 # ==============================================================
@@ -50,9 +48,7 @@ services:
       - PORT=5000
       # MongoDB connection using service name (not localhost!)
       - MONGO_URI=mongodb://mongo:27017/techagency
-      # Add your other env vars here or use an .env file below
-    env_file:
-      - .env.server         # Optional: create this file for secrets
+      # Required runtime settings are declared here for local and CI runs.
     depends_on:
       mongo:
         condition: service_healthy   # Wait for MongoDB to be ready
@@ -71,7 +67,7 @@ services:
       - "27017:27017"       # MongoDB: mongodb://localhost:27017
     environment:
       # Uncomment and set strong credentials to enable MongoDB authentication.
-      # Store real values in .env.server (gitignored), NOT here:
+      # Configure credentials through a local Compose override or deployment secret store:
       # MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
       # MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS}
       MONGO_INITDB_DATABASE: techagency
