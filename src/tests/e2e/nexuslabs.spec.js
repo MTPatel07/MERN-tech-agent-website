@@ -116,8 +116,34 @@ test.describe('Responsive Design', () => {
   test('TC: UI-23 — Mobile (375px) layout has no horizontal overflow', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(BASE_URL);
-    const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
-    expect(bodyWidth).toBeLessThanOrEqual(375);
+    const { viewportWidth, documentWidth, bodyWidth, overflowingElements } = await page.evaluate(() => {
+      const viewportWidth = document.documentElement.clientWidth;
+      const overflowingElements = [...document.querySelectorAll('body *')]
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            tag: element.tagName.toLowerCase(),
+            className: typeof element.className === 'string' ? element.className : '',
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            width: Math.round(rect.width),
+          };
+        })
+        .filter((element) => element.right > viewportWidth + 1 || element.left < -1)
+        .slice(0, 10);
+
+      return {
+        viewportWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        bodyWidth: document.body.scrollWidth,
+        overflowingElements,
+      };
+    });
+
+    expect(
+      documentWidth,
+      `Horizontal page overflow detected: ${JSON.stringify({ viewportWidth, documentWidth, bodyWidth, overflowingElements })}`
+    ).toBeLessThanOrEqual(viewportWidth);
   });
 
   test('TC: UI-24 — Tablet (768px) layout renders correctly', async ({ page }) => {
