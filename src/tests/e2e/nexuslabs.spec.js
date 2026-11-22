@@ -32,7 +32,12 @@ test.describe('Contact Page — Full User Flow', () => {
   });
 
   test('TC: UI-05 — Contact page renders with form', async ({ page }) => {
-    await expect(page.getByText('Tell Us About Your Project')).toBeVisible();
+    // Use getByRole to target only the <h3> heading and avoid the ambiguity
+    // with the <label> "Tell Us About Your Project *" and the hero paragraph,
+    // both of which also contain this substring.
+    await expect(
+      page.getByRole('heading', { name: 'Tell Us About Your Project', exact: true })
+    ).toBeVisible();
     await expect(page.getByPlaceholder('Rahul Sharma')).toBeVisible();
     await expect(page.getByPlaceholder('rahul@company.com')).toBeVisible();
   });
@@ -45,8 +50,14 @@ test.describe('Contact Page — Full User Flow', () => {
   });
 
   test('TC: UI-15 — Invalid email shows format error', async ({ page }) => {
+    // The email field is type="email". Chromium sanitizes inputs with no "@"
+    // (e.g. "notanemail") to empty string before react-hook-form reads them,
+    // so the required error fires instead of the pattern error.
+    // Use "invalid@nodomain" — it has "@" so it passes browser sanitization,
+    // but it has no TLD so it fails the regex /^[^@ ]+@[^@ ]+\.[^@ .]{2,}$/
+    // in Contact.jsx and triggers the "Enter a valid email" pattern message.
     await page.getByPlaceholder('Rahul Sharma').fill('Test User');
-    await page.getByPlaceholder('rahul@company.com').fill('notanemail');
+    await page.getByPlaceholder('rahul@company.com').fill('invalid@nodomain');
     await page.getByPlaceholder(/Describe your project/i).fill('This is a long test message.');
     await page.getByRole('button', { name: /Send Message/i }).click();
     await expect(page.getByText(/Enter a valid email/i)).toBeVisible();
@@ -63,8 +74,13 @@ test.describe('Contact Page — Full User Flow', () => {
     // Loading state appears
     await expect(page.getByText(/Sending.../i)).toBeVisible();
 
-    // Success state appears after API resolves
-    await expect(page.getByText(/Message Sent!/i)).toBeVisible({ timeout: 5000 });
+    // Wait for the <h4> success heading specifically. Using getByRole avoids the
+    // ambiguity with the toast notification whose text also contains "sent" — the
+    // toast reads "Message sent! We will get back..." (lowercase) and is a
+    // <div>, not a heading. exact:true ensures we match only the <h4> content.
+    await expect(
+      page.getByRole('heading', { name: 'Message Sent!', exact: true })
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test('TC: UI-20 — Submit button disabled during submission', async ({ page }) => {

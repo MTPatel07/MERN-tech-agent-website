@@ -10,6 +10,12 @@
 
 html {
   scroll-behavior: smooth;
+  /* overflow-x: clip clips content that escapes the viewport horizontally
+     without creating a scroll container (unlike overflow-x: hidden, which
+     would change stacking context). This stops the TechStack ticker's
+     width:max-content animated row from inflating document.body.scrollWidth
+     past the viewport width on mobile, fixing the UI-23 Playwright test. */
+  overflow-x: clip;
 }
 
 body {
