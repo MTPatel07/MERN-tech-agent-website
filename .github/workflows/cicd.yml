@@ -1,0 +1,98 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # ==========================================
+  # JOB 1: Continuous Integration (Build & Verify)
+  # ==========================================
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Node 18+ is recommended for Vite
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      # ── QA Gate 1: Unit & Component Tests ────────────────────
+      - name: Run Unit & Component Tests (Vitest)
+        # TC: CI-02 — Validates TypeScript + component logic before Docker build
+        run: npm test
+
+      # ── QA Gate 2: Upload Test Coverage Report ────────────────
+      - name: Upload Test Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+      - name: Build Frontend App (Vite + TS)
+        # This ensures your TypeScript compiles correctly without errors
+        run: npm run build
+
+      - name: Test Frontend Docker Build
+        # Verifies that your root Dockerfile compiles successfully
+        run: docker build -t test-frontend -f Dockerfile .
+
+      - name: Test Backend Docker Build
+        # Verifies that your backend Dockerfile compiles successfully
+        run: docker build -t test-backend -f Dockerfile.server .
+
+  # ==========================================
+  # JOB 2: Continuous Deployment (Publish to GHCR)
+  # ==========================================
+  publish-images:
+    needs: build-and-verify
+    # ONLY run this job if changes are pushed directly to the 'main' branch
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    # Required permissions to push to GitHub Container Registry
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Docker requires repository names to be strictly lowercase.
+      # Because your username has capitals (MTPatel07), we must convert it to lowercase.
+      - name: Set Lowercase Repository Name
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          # Tags the image as: ghcr.io/mtpatel07/dockerized_web_application-frontend:latest
+          tags: ghcr.io/${{ env.REPO_LC }}-frontend:latest
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.server
+          push: true
+          # Tags the image as: ghcr.io/mtpatel07/dockerized_web_application-backend:latest
+          tags: ghcr.io/${{ env.REPO_LC }}-backend:latest

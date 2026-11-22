@@ -1,0 +1,47 @@
+# ============================================================
+# Backend Dockerfile — Node.js / Express Server
+# ============================================================
+# Build context: project root (same as all other Dockerfiles)
+# Final image:   node:20-alpine  (~180MB)
+# ============================================================
+
+FROM node:20-alpine
+
+# Install wget for the HEALTHCHECK (not included in alpine by default)
+RUN apk add --no-cache wget
+
+# Set working directory
+WORKDIR /app/server
+
+# ── Copy package files FIRST (Docker layer cache optimization) ──
+# Copying package*.json before source code means Docker reuses
+# the cached npm install layer unless package.json/lock changes.
+# The * glob copies package-lock.json if present but won't fail if absent.
+COPY server/package.json server/package-lock.json* ./
+
+# ── Install production dependencies ────────────────────────────
+# Prefer npm ci (fast, reproducible) if package-lock.json exists.
+# Fall back to npm install if the lockfile is missing — prevents
+# build failure in environments where the lockfile was not committed.
+RUN if [ -f package-lock.json ]; then \
+      echo "✅ package-lock.json found — running npm ci (reproducible install)"; \
+      npm ci --omit=dev --no-audit --no-fund; \
+    else \
+      echo "⚠️  No package-lock.json — falling back to npm install"; \
+      npm install --omit=dev --no-audit --no-fund; \
+    fi
+
+# ── Copy all server source files ───────────────────────────────
+COPY server/ .
+
+# Expose the backend API port
+EXPOSE 5000
+
+# ── Health check ───────────────────────────────────────────────
+# Docker marks the container as Healthy/Unhealthy based on this.
+# AWS ALB and Kubernetes probes also hit GET /health.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget -qO- http://localhost:5000/health || exit 1
+
+# Start the server
+CMD ["node", "index.js"]

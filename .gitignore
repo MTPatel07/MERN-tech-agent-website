@@ -1,0 +1,90 @@
+# ==============================================================================
+# .gitignore — Nexus Labs MERN + Dockerized + Terraform Project
+# ==============================================================================
+
+# ── Node.js & npm ─────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn/
+
+# ── Build Output ──────────────────────────────────────────────────────────────
+dist/
+build/
+.cache/
+.vite/
+*.tsbuildinfo
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+# NEVER commit real secrets — use .example files as templates
+.env
+.env.local
+.env.development
+.env.staging
+.env.production
+.env.server
+.env.*.local
+
+# ── Terraform State & Secrets ─────────────────────────────────────────────────
+# State files can contain sensitive data (IPs, ARNs, secrets)
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfstate.d/
+terraform/*.tfvars
+# Keep the example file (it has no real values):
+!terraform/terraform.tfvars.example
+# Terraform crash logs
+terraform/crash.log
+terraform/crash.*.log
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Local Docker override files (machine-specific)
+docker-compose.override.yml
+
+# ── OS Files ──────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── IDE & Editors ─────────────────────────────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+# Keep shared extension recommendations:
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+*.log.*
+
+# ── Testing & Coverage ────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.vercel
